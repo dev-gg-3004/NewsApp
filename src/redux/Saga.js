@@ -15,7 +15,6 @@ function* onStartGetNewsDataAsync(){
     }
     catch (error) {
         console.log('=====onStartGetNewsDataAsync====error=======>',error,error.response);
-        
        yield alert('session Time Out Please Try Again')
     }
 }

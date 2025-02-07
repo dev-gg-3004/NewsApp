@@ -41,13 +41,15 @@ export default function NewsCards(props) {
     // console.log("generatedLink",generatedLink);
   }
   function renderNewsImage() {
-    const image={uri:props.newsimg}
+    const defaultImage = require("../../../assests/images/defaultNewsimage.png");
     return (
-      <View style={{height:"60%",width:"100%"}}>
-
-        <Image source={image} style={{...Style.imageStyle, }} />
+      <View style={{ height: "60%", width: "100%" }}>
+        <Image
+          source={props.newsimg ? { uri: props.newsimg } : defaultImage}
+          style={Style.imageStyle}
+        />
       </View>
-    )
+    );
   }
 
   function renderNewsContent() {
