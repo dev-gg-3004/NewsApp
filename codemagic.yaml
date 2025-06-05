@@ -37,7 +37,7 @@ workflows:
 
       - name: Install dependencies
         script: |
-          npm install --legacy-peer-deps
+          npm install
 
       - name: Set Android SDK location
         script: |
@@ -63,7 +63,7 @@ workflows:
           RESPONSE=$(curl -X POST https://upload.testfairy.com/api/upload \
             -F api_key="$TESTFAIRY_API_KEY" \
             -F file=@"$APK_FILE_PATH" \
-            -F groups="Internal-Testers" \
+            -F groups="myself" \
             -F notify="on" \
             -F auto_update="true")
 
@@ -82,7 +82,7 @@ workflows:
           success: true
           failure: false
 
-    react-native-ios:
+   
         name: React Native iOS
         max_build_duration: 120
         instance_type: mac_mini_m2
