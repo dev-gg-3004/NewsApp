@@ -3,6 +3,7 @@ workflows:
     name: React Native Android Dev Build
     max_build_duration: 120
     instance_type: mac_mini_m2
+
     triggering:
       events:
         - push
@@ -10,6 +11,7 @@ workflows:
         - pattern: dev-branch
           include: true
           source: true
+
     environment:
       android_signing:
         - newsapp
@@ -17,8 +19,9 @@ workflows:
         - myself
       vars:
         PACKAGE_NAME: "com.newsapp"
-        TESTFAIRY_API_KEY: "$TESTFAIRY_API_KEY"
-        node: v18.16.1
+        TESTFAIRY_API_KEY: $TESTFAIRY_API_KEY
+        NODE_VERSION: v18.16.1
+
     scripts:
       - name: Check version change
         script: |
@@ -28,9 +31,12 @@ workflows:
             exit 0
           fi
 
+          echo "Version change detected. Proceeding..."
           touch .version_changed
+          
           VERSION_NAME=$(grep "versionName" android/app/build.gradle | awk '{print $2}' | tr -d '"')
           VERSION_CODE=$(grep "versionCode" android/app/build.gradle | awk '{print $2}')
+          
           echo "VERSION_NAME=$VERSION_NAME" >> $CM_ENV
           echo "VERSION_CODE=$VERSION_CODE" >> $CM_ENV
 
@@ -62,8 +68,8 @@ workflows:
           RESPONSE=$(curl -X POST https://upload.testfairy.com/api/upload \
             -F api_key="$TESTFAIRY_API_KEY" \
             -F file=@"$APK_FILE_PATH" \
-            -F groups="myself" \
-            -F notify="on" \
+            -F testers_groups="myself" \
+            -F notify="true" \
             -F auto_update="true")
 
           echo "$RESPONSE"
