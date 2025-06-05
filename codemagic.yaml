@@ -61,7 +61,7 @@ workflows:
           echo "Uploading to TestFairy..."
           APK_FILE_PATH="android/app/build/outputs/apk/release/app-release.apk"
           curl -X POST https://upload.testfairy.com/api/upload \
-            -F api_key="$TESTFAIRY_API_KEY" \
+            -F api_key="0f9a9736d2a136013220edc56d3dbbfec010470e" \
             -F file=@"$APK_FILE_PATH" \
             -F groups="myself" \
             -F notify="on" \
