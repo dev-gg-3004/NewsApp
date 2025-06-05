@@ -3,7 +3,6 @@ workflows:
     name: React Native Android Dev Build
     max_build_duration: 120
     instance_type: mac_mini_m2
-
     triggering:
       events:
         - push
@@ -11,7 +10,6 @@ workflows:
         - pattern: dev-branch
           include: true
           source: true
-
     environment:
       android_signing:
         - newsapp
@@ -20,62 +18,56 @@ workflows:
       vars:
         PACKAGE_NAME: "com.newsapp"
         TESTFAIRY_API_KEY: $TESTFAIRY_API_KEY
-        NODE_VERSION: v18.16.1
+        node: v18.16.1
 
     scripts:
-      - name: Check version change
+      - name: Run full build process with version check
         script: |
+          set -e
+
+          echo "Fetching full git history..."
+          git fetch --unshallow || git fetch --all
+
+          echo "Checking for version changes in build.gradle..."
           VERSION_CHANGE=$(git diff HEAD~1 -G "versionCode|versionName" -- android/app/build.gradle | wc -l)
           if [ "$VERSION_CHANGE" -eq 0 ]; then
-            echo "No version change detected. Skipping build and upload."
+            echo "✅ No version change detected. Skipping build and upload."
             exit 0
           fi
 
-          echo "Version change detected. Proceeding..."
-          touch .version_changed
-          
+          echo "✅ Version change detected. Continuing build process..."
           VERSION_NAME=$(grep "versionName" android/app/build.gradle | awk '{print $2}' | tr -d '"')
           VERSION_CODE=$(grep "versionCode" android/app/build.gradle | awk '{print $2}')
-          
+          echo "VERSION_NAME=$VERSION_NAME"
+          echo "VERSION_CODE=$VERSION_CODE"
+
+          echo "Exporting to CM_ENV..."
           echo "VERSION_NAME=$VERSION_NAME" >> $CM_ENV
           echo "VERSION_CODE=$VERSION_CODE" >> $CM_ENV
 
-      - name: Install dependencies
-        script: |
+          echo "Installing dependencies..."
           npm install
 
-      - name: Set Android SDK location
-        script: |
+          echo "Setting Android SDK path..."
           echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/android/local.properties"
 
-      - name: Build APK
-        script: |
+          echo "Building APK..."
           cd android
           ./gradlew clean assembleRelease \
             -PversionCode=$VERSION_CODE \
             -PversionName=$VERSION_NAME
+          cd ..
 
-      - name: Upload to TestFairy (only if version changed)
-        script: |
-          if [ ! -f .version_changed ]; then
-            echo "Skipping TestFairy upload — no version change."
-            exit 0
-          fi
-
+          echo "Uploading to TestFairy..."
           APK_FILE_PATH="android/app/build/outputs/apk/release/app-release.apk"
-          echo "Uploading $APK_FILE_PATH to TestFairy..."
-
-          RESPONSE=$(curl -X POST https://upload.testfairy.com/api/upload \
+          curl -X POST https://upload.testfairy.com/api/upload \
             -F api_key="$TESTFAIRY_API_KEY" \
             -F file=@"$APK_FILE_PATH" \
-            -F testers_groups="myself" \
-            -F notify="true" \
-            -F auto_update="true")
-
-          echo "$RESPONSE"
+            -F groups="myself" \
+            -F notify="on" \
+            -F auto_update="true"
 
     artifacts:
-      - .version_changed
       - android/app/build/outputs/**/*.apk
 
     publishing:
