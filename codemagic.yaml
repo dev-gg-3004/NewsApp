@@ -18,6 +18,7 @@ workflows:
       vars:
         PACKAGE_NAME: "com.newsapp"
         TESTFAIRY_API_KEY: "$TESTFAIRY_API_KEY"
+        node: v18.16.1
     scripts:
       - name: Check version change
         script: |
