@@ -14,7 +14,7 @@ workflows:
       android_signing:
         - newsapp
       groups:
-        - google_play
+        - myself
       vars:
         PACKAGE_NAME: "com.newsapp"
         TESTFAIRY_API_KEY: "$TESTFAIRY_API_KEY"
