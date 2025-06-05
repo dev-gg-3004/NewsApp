@@ -1,0 +1,149 @@
+# Check out https://docs.codemagic.io/yaml/building-a-react-native-app/ for more information
+# Please review and update values
+workflows:
+  workflows:
+  react-native-android-dev:
+    name: React Native Android Dev Build
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: dev-branch
+          include: true
+          source: true
+    environment:
+      android_signing:
+        - newsapp  # <- Your uploaded keystore reference name in Codemagic
+      groups:
+        - google_play
+      vars:
+        PACKAGE_NAME: "com.newsapp"
+        TESTFAIRY_API_KEY: "$TESTFAIRY_API_KEY"
+    scripts:
+      - name: Check version change
+        script: |
+          VERSION_CHANGE=$(git diff HEAD~1 -G "versionCode|versionName" -- android/app/build.gradle | wc -l)
+          if [ "$VERSION_CHANGE" -eq 0 ]; then
+            echo "No version change detected. Skipping build and upload."
+            exit 0
+          fi
+
+          touch .version_changed
+          VERSION_NAME=$(grep "versionName" android/app/build.gradle | awk '{print $2}' | tr -d '"')
+          VERSION_CODE=$(grep "versionCode" android/app/build.gradle | awk '{print $2}')
+          echo "VERSION_NAME=$VERSION_NAME" >> $CM_ENV
+          echo "VERSION_CODE=$VERSION_CODE" >> $CM_ENV
+
+      - name: Install dependencies
+        script: |
+          npm install --legacy-peer-deps
+
+      - name: Set Android SDK location
+        script: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/android/local.properties"
+
+      - name: Build APK
+        script: |
+          cd android
+          ./gradlew clean assembleRelease \
+            -PversionCode=$VERSION_CODE \
+            -PversionName=$VERSION_NAME
+
+      - name: Upload to TestFairy (only if version changed)
+        script: |
+          if [ ! -f .version_changed ]; then
+            echo "Skipping TestFairy upload — no version change."
+            exit 0
+          fi
+
+          APK_FILE_PATH="android/app/build/outputs/apk/release/app-release.apk"
+          echo "Uploading $APK_FILE_PATH to TestFairy..."
+
+          RESPONSE=$(curl -X POST https://upload.testfairy.com/api/upload \
+            -F api_key="$TESTFAIRY_API_KEY" \
+            -F file=@"$APK_FILE_PATH" \
+            -F groups="Internal-Testers" \
+            -F notify="on" \
+            -F auto_update="true")
+
+          echo "$RESPONSE"
+
+    artifacts:
+      - .version_changed
+      - android/app/build/outputs/**/*.apk
+
+    publishing:
+      email:
+        recipients:
+          - gopal.gupta.v2stech@gmail.com
+          - shubham.singh.v2stech@gmail.com
+        notify:
+          success: true
+          failure: false
+
+    react-native-ios:
+        name: React Native iOS
+        max_build_duration: 120
+        instance_type: mac_mini_m2
+        integrations:
+          app_store_connect: codemagic
+        environment:
+          ios_signing:
+            distribution_type: app_store
+            bundle_identifier: io.codemagic.sample.reactnative
+          vars:
+            XCODE_WORKSPACE: "CodemagicSample.xcworkspace" # <-- Put the name of your Xcode workspace here
+            XCODE_SCHEME: "CodemagicSample" # <-- Put the name of your Xcode scheme here
+            APP_ID: 1555555551 # <-- Put the app id number here. This is found in App Store Connect > App > General > App Information
+          node: v19.7.0
+          xcode: latest
+          cocoapods: default
+        scripts:
+            - name: Install npm dependencies
+              script: |
+                npm install
+            - name: Install CocoaPods dependencies
+              script: |
+                cd ios && pod install
+            - name: Set up code signing settings on Xcode project
+              script: |
+                xcode-project use-profiles --warn-only
+            - name: Increment build number
+              script: |
+                # Information about getting the latest build version can be found here: https://docs.codemagic.io/knowledge-codemagic/build-versioning/#app-store-or-testflight-latest-build-number
+                cd $CM_BUILD_DIR/ios
+                LATEST_BUILD_NUMBER=$(app-store-connect get-latest-testflight-build-number "$APP_ID")
+                agvtool new-version -all $(($LATEST_BUILD_NUMBER + 1))
+            - name: Build ipa for distribution
+              script: |
+                xcode-project build-ipa \
+                  --workspace "$CM_BUILD_DIR/ios/$XCODE_WORKSPACE" \
+                  --scheme "$XCODE_SCHEME"
+        artifacts:
+            - build/ios/ipa/*.ipa
+            - /tmp/xcodebuild_logs/*.log
+            - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
+            - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+        publishing:
+          email:
+            recipients:
+              - user_1@example.com
+              - user_2@example.com
+            notify:
+              success: true
+              failure: false
+          app_store_connect:
+            auth: integration
+
+            # Configuration related to TestFlight (optional)
+            # Note: This action is performed during post-processing.
+            submit_to_testflight: true
+            beta_groups: # Specify the names of beta tester groups that will get access to the build once it has passed beta review.
+              - group name 1
+              - group name 2
+
+            # Configuration related to App Store (optional)
+            # Note: This action is performed during post-processing.
+            submit_to_app_store: false
